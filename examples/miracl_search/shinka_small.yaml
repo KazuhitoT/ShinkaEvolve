@@ -1,0 +1,112 @@
+max_evaluation_jobs: 5  # High evaluation concurrency
+max_proposal_jobs: 5     # High proposal concurrency
+max_db_workers: 5        # More database workers for high throughput
+
+db_config:
+  db_path: "evolution_db.sqlite"
+  num_islands: 5
+  archive_size: 40
+  # inspiration parameters
+  elite_selection_ratio: 0.3
+  num_archive_inspirations: 4
+  num_top_k_inspirations: 2
+  # island migration parameters
+  migration_interval: 10
+  migration_rate: 0.1
+  island_elitism: true
+  # parent selection parameters
+  parent_selection_strategy: "weighted"
+  # power-law parent selection parameters
+  exploitation_alpha: 1.0
+  exploitation_ratio: 0.2
+  # weighted tree parent selection parameters
+  parent_selection_lambda: 10.0
+
+evo_config:
+  patch_types:
+    - diff
+    - full
+    - cross
+  patch_type_probs:
+    - 0.6
+    - 0.3
+    - 0.1
+  num_generations: 200
+  max_api_costs: 20.0
+  max_patch_resamples: 3
+  max_patch_attempts: 3
+  max_novelty_attempts: 3
+  llm_models:
+    - "gemini-3-flash-preview"
+    - "claude-haiku-4-5-20251001"
+    - "gpt-5-nano"
+  llm_kwargs:
+    temperatures:
+      - 0
+      - 0.5
+      - 1.0
+    reasoning_efforts:
+      - min
+      - low
+    max_tokens: 32768
+  meta_rec_interval: 40
+  meta_llm_models:
+    - "gpt-5-mini"
+  meta_llm_kwargs:
+    temperatures:
+      - 0.0
+  prompt_evolution_interval: 5
+  task_sys_msg: |
+    あなたは日本語情報検索（MIRACL）の専門家です。
+    進化対象: search() 関数と _normalize_scores() ヘルパーのみ（EVOLVE-BLOCK内）
+
+    タスク: 日本語Wikipediaの全コーパス（約700万パッセージ）から、
+    クエリに関連するパッセージを検索・ランキングする。
+    search() 内で retrieve(), embeddings, rerankers 等の信号を統合し、最適な順序を決定する。
+
+    ## 評価指標（多目的）
+    combined_score = accuracy_score - time_penalty - 0.1 * zero_result_rate - robustness_penalty
+    accuracy_score = 0.50 * NDCG@10 + 0.25 * Precision@10 + 0.25 * MRR@10
+    - NDCG@10 (50%): 上位10件のランキング品質
+    - Precision@10 (25%): 上位10件中の関連文書率 → 偽陽性の排除が重要
+    - MRR@10 (25%): 最初の関連文書の順位 → 1件目を確実に当てる戦略
+    - 時間ペナルティ: ベースライン比1.5x超で減点 → 効率的なアルゴリズムへの圧力
+    - zero_result_rate: top-10に関連文書が1つも入らないクエリの割合 → 空結果を出さない
+    - robustness_penalty: hard クエリ（関連文書1件）の平均nDCGが0.3未満で減点
+
+    public metrics に ndcg_easy、ndcg_hard、zero_result_rate、robustness_penalty が含まれます。
+
+    ## 期待する構造的変更
+    - クエリ依存の動的重み付け（クエリ長・タイプに応じた戦略切替）
+    - 信頼度ベースのフィルタリング（低信頼候補の除外）
+    - 多段階リランキング（粗いフィルタ → 精密スコアリング）
+    - スコア分布分析（候補間スコアギャップの活用）
+    - 複数信号の非線形統合（単純な重み付き平均を超えるフュージョン）
+    - スコア正規化の改善（min-max以外の手法も検討: percentile rank, softmax等）
+    - 全4つの埋め込みモデルの特性を活かしたアンサンブル
+
+    ## アンチパターン（避けるべき変更）
+    - フュージョン重みの微調整のみ
+    - ストップワード追加のみ
+    - BM25パラメータ（k1, b）の微調整のみ
+    - 空結果クエリを出す変更（zero_result_rate増加はペナルティ）
+    - hardクエリの性能を犠牲にする変更（robustness_penaltyが発動）
+
+    ## 利用可能なリソース
+    1. EVOLVE-BLOCK外の固定関数（変更不可）:
+      - preprocess_text(text) → 正規化テキスト
+      - tokenize(text) → bigram トークンリスト
+      - build_index(corpus) → 転置インデックス（BM25用）
+      - retrieve(query, index, top_k) → BM25候補リスト
+      - score_passage(query, title, text) → Jaccard-like スパーススコア
+    2. 事前計算済み埋め込みベクトル（全4モデル活用推奨）:
+      - search() に embeddings（Dict[model_name, {"corpus": ndarray, "queries": ndarray}]）と query_index が渡される
+      - 利用可能モデル: cl-nagoya/ruri-v3-30m (256d), hotchpotch/static-embedding-japanese (1024d),
+        text-embedding-3-small (1536d), gemini-embedding-001 (768d)
+      - 埋め込みはL2正規化済み → np.dot(q, d) = コサイン類似度
+      - 初期実装は全モデル平均だが、モデル別重みや選択的使用も有効
+    3. 事前計算済みリランカースコア:
+      - search() に rerankers（Dict[model_name, {"doc_indices": ndarray, "scores": ndarray}]）が渡される
+      - doc_indices: (num_queries, max_candidates) int32、-1はパディング
+      - scores: (num_queries, max_candidates) float32、sigmoid正規化済み [0,1]
+      - 利用可能モデル: cl-nagoya/ruri-v3-reranker-310m, hotchpotch/japanese-reranker-tiny-v2

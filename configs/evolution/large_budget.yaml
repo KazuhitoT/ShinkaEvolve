@@ -13,11 +13,12 @@ evo_config:
   max_patch_resamples: 3
   max_patch_attempts: 3
   llm_models:
-    - "gpt-4.1"
-    - "gpt-4.1-mini"
-    - "gpt-4.1-nano"
-    - "us.anthropic.claude-sonnet-4-20250514-v1:0"
-    - "o4-mini"
+    # - "gpt-4.1"
+    # - "gpt-4.1-mini"
+    # - "gpt-4.1-nano"
+    # - "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    - "claude-haiku-4-5-20251001"
+    # - "o4-mini"
   llm_dynamic_selection: ucb
   llm_kwargs:
     temperatures:

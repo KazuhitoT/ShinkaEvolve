@@ -47,7 +47,11 @@ dependencies = [
     "aiofiles",
     "google-genai",
     "psutil",
-    "httpx==0.27"
+    "httpx==0.27",
+    "datasets==3.6.0",
+    "lindera-python>=2.2.0",
+    "pyarrow",
+    "sentence-transformers>=3.0.0",
 ]
 
 [tool.setuptools]
