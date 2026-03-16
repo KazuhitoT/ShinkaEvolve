@@ -1,6 +1,6 @@
 # MIRACL 日本語情報検索タスク
 
-MIRACL (Multilingual Information Retrieval Across a Continuum of Languages) の日本語サブセットを対象とした情報検索タスク。日本語 Wikipedia コーパスからクエリに関連するパッセージを検索・ランキングする `search()` 関数を進化させる。
+[MIRACL](https://huggingface.co/datasets/miracl/miracl) (Multilingual Information Retrieval Across a Continuum of Languages) の日本語サブセットを対象とした情報検索タスク。コーパスからクエリに関連するパッセージを検索・ランキングする `search()` 関数を進化させる。
 
 ## ディレクトリ構成
 
@@ -25,6 +25,7 @@ MIRACL (Multilingual Information Retrieval Across a Continuum of Languages) の�
 ### 1. コーパス・クエリの抽出
 
 ```bash
+# プロジェクトのルートフォルダで下記を実行
 .venv/bin/python examples/miracl_search/gen_data.py
 ```
 
@@ -120,8 +121,8 @@ shinka_launch variant=miracl_search_example evo_config.num_generations=5
 
 `search()` は以下の信号を統合してクエリに対する上位 k 件のパッセージを返す:
 
-- **スパーススコア** — bigram Jaccard 類似度（`score_passage()` / `doc_token_sets`）
-- **デンススコア** — 事前計算済み埋め込みベクトルのコサイン類似度（4モデル）
+- **疎ベクトルスコア** — bigram Jaccard 類似度（`score_passage()` / `doc_token_sets`）
+- **蜜ベクトルスコア** — 事前計算済み埋め込みベクトルのコサイン類似度（4モデル）
 - **リランカースコア** — CrossEncoder による精密スコア（2モデル）
 
 ### 利用可能な埋め込みモデル
